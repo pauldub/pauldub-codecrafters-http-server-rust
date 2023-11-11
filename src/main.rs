@@ -137,6 +137,7 @@ async fn main() {
                         } else {
                             socket.write(b"HTTP/1.1 404 Not Found\r\n\r\n").await.unwrap();
                         }
+                        break;
                     }
                     Err(_) => {
                         // an error occurred, we can handle it here or just break
