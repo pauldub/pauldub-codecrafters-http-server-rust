@@ -94,7 +94,7 @@ pub async fn files(
 
             tokio::fs::write(path, request_body).await.unwrap();
 
-            socket.write(b"HTTP/1.1 200 OK\r\n\r\n").await?;
+            socket.write(b"HTTP/1.1 201 Created\r\n\r\n").await?;
           } else {
             socket.write(b"HTTP/1.1 400 Bad Request\r\n\r\n").await?;
           }
