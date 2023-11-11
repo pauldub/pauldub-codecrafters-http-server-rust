@@ -60,10 +60,6 @@ pub mod http {
             let mut input = bytes;
 
             loop {
-                let (leftover, header) = Header::from_bytes(input)?;
-                input = leftover;
-                headers.push(header);
-
                 // Stop when there are two lines separating the headers from the body
                 if input.len() >= 4 && &input[0..4] == b"\r\n\r\n" {
                     input = &input[4..];
@@ -77,6 +73,10 @@ pub mod http {
                 if input.len() == 2 && &input[0..2] == b"\r\n" {
                     break;
                 }
+
+                let (leftover, header) = Header::from_bytes(input)?;
+                input = leftover;
+                headers.push(header);
             }
 
             Ok((input, headers))
