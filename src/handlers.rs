@@ -57,6 +57,14 @@ pub async fn files(
     match request.path.split_once("/files/") {
         Some((_, path)) => {
             let path = format!("{}/{}", directory, path);
+            match tokio::fs::try_exists(path.clone()).await {
+              Ok(true) => {},
+              _ => {
+                socket.write(b"HTTP/1.1 404 Not Found\r\n\r\n").await?;
+                return Ok(());
+              }
+            }
+
             let contents = tokio::fs::read(path).await.unwrap();
 
             let response = format!(
