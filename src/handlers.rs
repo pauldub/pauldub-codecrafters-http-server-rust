@@ -1,5 +1,5 @@
 use anyhow::Result;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use tokio::net::TcpStream;
 
 use crate::http;
@@ -48,31 +48,56 @@ pub async fn user_agent(
     Ok(())
 }
 
-pub async fn files(
+async fn read_file(
     socket: &mut TcpStream,
     request: &http::Request,
     _headers: &Vec<http::Header>,
     directory: &str,
+    path: &str,
+) -> Result<()> {
+    let path = format!("{}/{}", directory, path);
+    match tokio::fs::try_exists(path.clone()).await {
+        Ok(true) => {}
+        _ => {
+            socket.write(b"HTTP/1.1 404 Not Found\r\n\r\n").await?;
+            return Ok(());
+        }
+    }
+
+    let contents = tokio::fs::read(path).await.unwrap();
+
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n",
+        contents.len(),
+    );
+    socket.write_all(response.as_bytes()).await?;
+    socket.write_all(&contents).await?;
+
+    Ok(())
+}
+
+pub async fn files(
+    socket: &mut TcpStream,
+    request: &http::Request,
+    headers: &Vec<http::Header>,
+    input: &[u8],
+    directory: &str,
 ) -> Result<()> {
     match request.path.split_once("/files/") {
         Some((_, path)) => {
+          if request.method == "GET" {
+            read_file(socket, &request, &headers, &directory, &path).await?
+          } else if request.method == "POST" {
             let path = format!("{}/{}", directory, path);
-            match tokio::fs::try_exists(path.clone()).await {
-              Ok(true) => {},
-              _ => {
-                socket.write(b"HTTP/1.1 404 Not Found\r\n\r\n").await?;
-                return Ok(());
-              }
-            }
+            let content_length = headers.iter().find(|h| h.name == "Content-Length").unwrap();
+            let request_body = input[0..content_length.value.parse::<usize>().unwrap()].to_vec();
 
-            let contents = tokio::fs::read(path).await.unwrap();
+            tokio::fs::write(path, request_body).await.unwrap();
 
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n",
-                contents.len(),
-            );
-            socket.write_all(response.as_bytes()).await?;
-            socket.write_all(&contents).await?;
+            socket.write(b"HTTP/1.1 200 OK\r\n\r\n").await?;
+          } else {
+            socket.write(b"HTTP/1.1 400 Bad Request\r\n\r\n").await?;
+          }
         }
         None => {
             socket.write(b"HTTP/1.1 400 Bad Request\r\n\r\n").await?;

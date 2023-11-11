@@ -1,7 +1,7 @@
 use nom::{
     bytes::complete::{tag, take_till1},
     character::complete::{line_ending, space1},
-    IResult,
+    IResult, branch::alt,
 };
 
 #[derive(Debug)]
@@ -13,7 +13,7 @@ pub struct Request {
 
 impl Request {
     pub fn from_bytes(bytes: &[u8]) -> IResult<&[u8], Self> {
-        let (input, method) = tag("GET")(bytes)?;
+        let (input, method) = alt((tag("GET"), tag("POST")))(bytes)?;
         let (input, _) = space1(input)?;
         let (input, path) = take_till1(|c| c == b' ')(input)?;
         let (input, _) = space1(input)?;
@@ -66,11 +66,18 @@ impl Header {
                 break;
             }
 
-            if input.len() == 2 && &input[0..2] == b"\r\n" {
+            if input.len() >= 2 && &input[0..2] == b"\r\n" {
+                input = &input[2..];
                 break;
             }
 
             let (leftover, header) = Header::from_bytes(input)?;
+            println!("header: {:?}", header);
+
+            if header.name == "Content-Length" {
+              println!("leftover: {:?}", leftover);
+            }
+
             input = leftover;
             headers.push(header);
         }

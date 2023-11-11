@@ -41,7 +41,7 @@ async fn main() {
                         let (input, request) = http::Request::from_bytes(raw_request).unwrap();
                         println!("request: {:?}", request);
 
-                        let (_input, headers) = http::Header::parse_all(input).unwrap();
+                        let (input, headers) = http::Header::parse_all(input).unwrap();
                         println!("request headers: {:?}", headers);
 
                         if request.path == "/" {
@@ -51,7 +51,7 @@ async fn main() {
                         } else if request.path == "/user-agent" {
                             handlers::user_agent(&mut socket, &request, &headers).await.unwrap();
                         } else if request.path.starts_with("/files/") {
-                            handlers::files(&mut socket, &request, &headers, &directory).await.unwrap();
+                            handlers::files(&mut socket, &request, &headers, &input, &directory).await.unwrap();
                         } else {
                             socket
                                 .write(b"HTTP/1.1 404 Not Found\r\n\r\n")
