@@ -11,10 +11,10 @@ fn main() {
             Ok(mut stream) => {
                 println!("accepted new connection");
 
-                let mut request: Vec<u8> = vec![];
-                stream.read_to_end(&mut request).unwrap();
+                let mut buffer: [u8; 128] = [0; 128];
+                let read_size = stream.read(&mut buffer).unwrap();
 
-                println!("read request len={}", request.len());
+                println!("read {} bytes", read_size);
 
                 write!(&mut stream, "HTTP/1.1 200 OK\r\n\r\n").unwrap();
             }
