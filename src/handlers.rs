@@ -1,5 +1,5 @@
 use anyhow::Result;
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 use crate::http;
@@ -7,7 +7,7 @@ use crate::http;
 pub async fn echo(
     socket: &mut TcpStream,
     request: &http::Request,
-    _headers: &Vec<http::Header>,
+    _headers: &[http::Header],
 ) -> Result<()> {
     match request.path.split_once("/echo/") {
         Some((_, message)) => {
@@ -19,7 +19,9 @@ pub async fn echo(
             socket.write_all(response.as_bytes()).await?;
         }
         None => {
-            socket.write(b"HTTP/1.1 400 Bad Request\r\n\r\n").await?;
+            socket
+                .write_all(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                .await?;
         }
     }
 
@@ -29,7 +31,7 @@ pub async fn echo(
 pub async fn user_agent(
     socket: &mut TcpStream,
     _request: &http::Request,
-    headers: &Vec<http::Header>,
+    headers: &[http::Header],
 ) -> Result<()> {
     match headers.iter().find(|h| h.name == "User-Agent") {
         Some(header) => {
@@ -41,7 +43,9 @@ pub async fn user_agent(
             socket.write_all(response.as_bytes()).await?;
         }
         None => {
-            socket.write(b"HTTP/1.1 400 Bad Request\r\n\r\n").await?;
+            socket
+                .write_all(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                .await?;
         }
     }
 
@@ -50,8 +54,8 @@ pub async fn user_agent(
 
 async fn read_file(
     socket: &mut TcpStream,
-    request: &http::Request,
-    _headers: &Vec<http::Header>,
+    _request: &http::Request,
+    _headers: &[http::Header],
     directory: &str,
     path: &str,
 ) -> Result<()> {
@@ -59,7 +63,7 @@ async fn read_file(
     match tokio::fs::try_exists(path.clone()).await {
         Ok(true) => {}
         _ => {
-            socket.write(b"HTTP/1.1 404 Not Found\r\n\r\n").await?;
+            socket.write_all(b"HTTP/1.1 404 Not Found\r\n\r\n").await?;
             return Ok(());
         }
     }
@@ -76,31 +80,48 @@ async fn read_file(
     Ok(())
 }
 
+pub async fn write_file(
+    socket: &mut TcpStream,
+    _request: &http::Request,
+    headers: &[http::Header],
+    input: &[u8],
+    directory: &str,
+    path: &str,
+) -> Result<()> {
+    let path = format!("{}/{}", directory, path);
+    let content_length = headers.iter().find(|h| h.name == "Content-Length").unwrap();
+    let request_body = input[0..content_length.value.parse::<usize>().unwrap()].to_vec();
+
+    tokio::fs::write(path, request_body).await.unwrap();
+
+    socket.write_all(b"HTTP/1.1 201 Created\r\n\r\n").await?;
+
+    Ok(())
+}
+
 pub async fn files(
     socket: &mut TcpStream,
     request: &http::Request,
-    headers: &Vec<http::Header>,
+    headers: &[http::Header],
     input: &[u8],
     directory: &str,
 ) -> Result<()> {
     match request.path.split_once("/files/") {
         Some((_, path)) => {
-          if request.method == "GET" {
-            read_file(socket, &request, &headers, &directory, &path).await?
-          } else if request.method == "POST" {
-            let path = format!("{}/{}", directory, path);
-            let content_length = headers.iter().find(|h| h.name == "Content-Length").unwrap();
-            let request_body = input[0..content_length.value.parse::<usize>().unwrap()].to_vec();
-
-            tokio::fs::write(path, request_body).await.unwrap();
-
-            socket.write(b"HTTP/1.1 201 Created\r\n\r\n").await?;
-          } else {
-            socket.write(b"HTTP/1.1 400 Bad Request\r\n\r\n").await?;
-          }
+            if request.method == "GET" {
+                read_file(socket, request, headers, directory, path).await?
+            } else if request.method == "POST" {
+                write_file(socket, request, headers, input, directory, path).await?
+            } else {
+                socket
+                    .write_all(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                    .await?;
+            }
         }
         None => {
-            socket.write(b"HTTP/1.1 400 Bad Request\r\n\r\n").await?;
+            socket
+                .write_all(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                .await?;
         }
     }
 

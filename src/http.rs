@@ -1,7 +1,8 @@
 use nom::{
+    branch::alt,
     bytes::complete::{tag, take_till1},
     character::complete::{line_ending, space1},
-    IResult, branch::alt,
+    IResult,
 };
 
 #[derive(Debug)]
@@ -62,7 +63,7 @@ impl Header {
                 break;
             }
 
-            if input.len() == 0 {
+            if input.is_empty() {
                 break;
             }
 
@@ -75,7 +76,7 @@ impl Header {
             println!("header: {:?}", header);
 
             if header.name == "Content-Length" {
-              println!("leftover: {:?}", leftover);
+                println!("leftover: {:?}", leftover);
             }
 
             input = leftover;
