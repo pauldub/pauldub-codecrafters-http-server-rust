@@ -12,8 +12,9 @@ fn main() {
                 println!("accepted new connection");
 
                 let mut request: Vec<u8> = vec![];
-
                 stream.read_to_end(&mut request).unwrap();
+
+                println!("read request len={}", request.len());
 
                 write!(&mut stream, "HTTP/1.1 200 OK\r\n\r\n").unwrap();
             }
