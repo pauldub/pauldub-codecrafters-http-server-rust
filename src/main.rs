@@ -30,6 +30,7 @@ pub mod http {
         }
     }
     
+    #[derive(Debug)]
     pub struct Header {
         pub name: String,
         pub value: String,
@@ -59,9 +60,18 @@ pub mod http {
                 input = leftover;
                 headers.push(header);
     
+                println!("input.len(): {}", input.len());
                 // Stop when there are two lines separating the headers from the body
                 if input.len() >= 4 && &input[0..4] == b"\r\n\r\n" {
                     input = &input[4..];
+                    break;
+                }
+                
+                if input.len() == 0 {
+                    break;
+                }
+
+                if input.len() == 2 && &input[0..2] == b"\r\n" {
                     break;
                 }
             }
@@ -86,8 +96,12 @@ fn main() {
 
                 println!("read {} bytes", read_size);
                 
-                let (input, request) = http::Request::from_bytes(&buffer).unwrap();
+                let raw_request = &buffer[0..read_size];
+                let (input, request) = http::Request::from_bytes(raw_request).unwrap();
                 println!("request: {:?}", request);
+
+                let (_input, headers) = http::Header::parse_all(input).unwrap();
+                println!("request headers: {:?}", headers);
                 
                 if request.path == "/" {
                     write!(&mut stream, "HTTP/1.1 200 OK\r\n\r\n").unwrap();
@@ -95,6 +109,15 @@ fn main() {
                     match request.path.split_once("/echo/") {
                         Some((_, message)) => {
                             write!(&mut stream, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", message.len(), message).unwrap();
+                        },
+                        None => {
+                            write!(&mut stream, "HTTP/1.1 400 Bad Request\r\n\r\n").unwrap();
+                        }
+                    }
+                } else if request.path == "/user-agent" {
+                    match headers.iter().find(|h| h.name == "User-Agent") {
+                        Some(header) => {
+                            write!(&mut stream, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", header.value.len(), header.value).unwrap();
                         },
                         None => {
                             write!(&mut stream, "HTTP/1.1 400 Bad Request\r\n\r\n").unwrap();
