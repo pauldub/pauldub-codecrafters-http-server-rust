@@ -89,7 +89,9 @@ fn main() {
                 let (input, request) = http::Request::from_bytes(&buffer).unwrap();
                 println!("request: {:?}", request);
                 
-                if request.path.starts_with("/echo/") {
+                if request.path == "/" {
+                    write!(&mut stream, "HTTP/1.1 200 OK\r\n\r\n").unwrap();
+                } else if request.path.starts_with("/echo/") {
                     match request.path.split_once("/echo/") {
                         Some((_, message)) => {
                             write!(&mut stream, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", message.len(), message).unwrap();
