@@ -73,12 +73,6 @@ impl Header {
             }
 
             let (leftover, header) = Header::from_bytes(input)?;
-            println!("header: {:?}", header);
-
-            if header.name == "Content-Length" {
-                println!("leftover: {:?}", leftover);
-            }
-
             input = leftover;
             headers.push(header);
         }
