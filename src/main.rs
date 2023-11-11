@@ -1,11 +1,10 @@
 pub mod http;
 pub mod handlers;
 
-use std::sync::{Arc};
+use std::sync::Arc;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() {
